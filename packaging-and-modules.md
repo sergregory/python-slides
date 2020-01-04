@@ -307,6 +307,137 @@ from spam.bar import grok
 
 ---
 
+## What are the PYTHONPATH, sys.path and other guys?
+
+----
+
+### Populating path for imports: what we already know
+
+- As I've said, if something is not in path, it cannot be imported.
+- We may take a look a the path:
+```python3
+import sys
+print(sys.path)
+```
+- We can manipulate the path in a hacky way:
+```python3
+import sys
+sys.path.append('some_path')
+```
+
+----
+
+### Anatomy of the `sys.path`
+
+`sys.path` includes:
+- minimal set from your python distribution
+- virtual environment: `site-packages`
+- no virtual environment: `site-packages` / `dist-packages`
+- current working directory (directory of the script)
+- directories from the `PYTHONPATH`
+
+----
+
+### Populating `sys.path`: the right way
+
+1. (it does not work): import only from the current directory
+
+1. add everything you need to the `PYTHONPATH`
+    ```
+    PYTHONPATH=`pwd` python scripts/script.py
+    ```
+1. use the `site` package and populate the path dynamically
+1. write proper setup scripts and do the developer installs for the local use (theme for the next discussion)
+
+---
+
+## Imports done right
+
+----
+
+### Absolute imports
+
+- Assuming the following structure
+    ```
+    .
+    └── foo
+        ├── grok.py
+        ├── __init__.py
+        └── spam.py
+
+    ```
+- Absolute import:
+    ```python3
+    # foo/spam.py
+    from foo import grok
+    ```
+    - you should have parent dir for `foo` in path
+
+----
+
+### Relative imports
+
+- Absolute import looks strange - `grok` is on the same level, maybe we can import it without absolute path? - Yes!
+- Relative import:
+    ```python3
+    # foo/spam.py
+    from . import grok
+    ```
+- Try to run it - and it will fail with the message:
+    ```
+    File "foo/grok.py", line 3, in <module>
+    from . import spam
+    ValueError: Attempted relative import in non-package
+
+----
+
+### How to avoid non-package import errors
+
+```
+.
+├── bar.py
+└── foo
+    ├── grok.py
+    ├── __init__.py
+    └── spam.py
+```
+
+```python3
+# bar.py
+from foo import grok
+```
+
+```
+python bar.py
+```
+
+- everything works smoothly
+- but how to use relative imports without these restrictions?
+
+----
+
+### How to avoid non-package import errors 2
+
+- Python assumes we have scripts on the top level of the project - so, we do not need relative imports
+- But if we write script somewhere inside the project - we want to have relative imports
+- Solution:
+    ```
+    python -m spam.grok
+    ```
+
+----
+
+### Why and how it works?
+
+- Python uses import machinery to locate the module and load its code
+- Current directory is added to the `sys.path`
+- We still may need to change `sys.path` if we have absolute imports that do not use current directory as root dir
+- Note that the process of locating the module to be executed may require importing the containing package.
+
+
+
+---
+
 ## Glossary for organizing python code
 
 ----
@@ -331,150 +462,81 @@ from spam.bar import grok
 ### Namespace package
 - A PEP 420 package which serves only as a container for subpackages. Namespace packages may have no physical representation, and specifically are not like a regular package because they have no `__init__.py` file.
 
----
+----
 
 ### Wait, what?!
 
 - You mean that if I miss that stupid `__init__.py` file I'll get another type of package?
-- Yes! And what's even worse, these two types of packages work differently!
-
-
-## What is namespace package and how to live without `__init__.py`
-## What are the PYTHONPATH, sys.path and other guys?
-## Absolute imports vs relative ones
-## Imports done right
-## How to avoid import errors on calling the script from inside the project
-## Two types of calling python scripts (direct vs -m)
-
-## How to write setup.py script in a simple case
-## Managing dependencies
-## Collecting dependencies if they are not provided (automatic script)
-## Pip freeze
-## Pip & requirements.txt
-## Poetry
+- Yes! And these two types of packages work differently!
 
 ---
 
+## What is namespace package and how to use it
 
-```graphviz
-digraph {
-  compound=true
-  rankdir=RL
+----
 
-  graph [ fontname="Source Sans Pro", fontsize=20 ];
-  node [ fontname="Source Sans Pro", fontsize=18];
-  edge [ fontname="Source Sans Pro", fontsize=12 ];
+### Imports with namespace package
 
-
-  subgraph core {
-    c [label="Hackmd-it \ncore"] [shape=box]
-  }
-  
-  c -> sync [ltail=session lhead=session]
-
-  subgraph cluster1 {
-     concentrate=true
-    a [label="Text source\nGithub, Gitlab, ..."] [shape=box]
-    b [label="HackMD Editor"] [shape=box]
-    sync [label="sync" shape=plaintext ]
-    b -> sync  [dir="both"]
-    sync -> a [dir="both"]
-    label="An edit session"
-  }
-}
+Image you have the following project structure:
+```
+├── bar
+│   └── spam
+│       └── bar.py
+└── foo
+    └── spam
+        └── baz.py
 ```
 
----
+Please note: there are two sub-directories with the same names (`spam`) and there are no `__init__.py` files
 
-### Architecture of extension
+----
 
----
+### Regular imports
 
-![](https://i.imgur.com/ij69tPh.png)
-
----
-
-## Content script
-
-- Bind with each page
-- Manipulate DOM
-- Add event listeners
-- Isolated JavaScript environment
-  - It doesn't break things
-
----
-
-# :fork_and_knife: 
-
----
-
-<style>
-code.blue {
-  color: #337AB7 !important;
-}
-code.orange {
-  color: #F7A004 !important;
-}
-</style>
-
-- <code class="orange">onMessage('event')</code>: Register event listener
-- <code class="blue">sendMessage('event')</code>: Trigger event
-
----
-
-# :bulb: 
-
----
-
-- Dead simple API
-- Only cares about application logic
-
----
-
-```typescript
-import * as Channeru from 'channeru'
-
-// setup channel in different page environment, once
-const channel = Channeru.create()
+If we do just regular import, everything works as expected:
+```
+>>> from bar.spam import bar
+    Imported bar.py
+    
+>>> from foo.spam import baz
+    Imported baz.py
 ```
 
----
+----
 
-```typescript
-// in background script
-const fakeLogin = async () => true
+### Imports using namespace packages
 
-channel.answer('isLogin', async () => {
-  return await fakeLogin()
-})
+- So why are there so much fuss about namespace packages?
+- Because it can do magic!
+
+```
+In [1]: import sys                                                         
+In [2]: sys.path.extend(('foo', 'bar'))
+In [3]: from spam import bar
+Imported bar.py
+In [4]: from spam import baz
+Imported baz.py
+In [6]: import spam
+In [7]: spam
+Out[7]: <module 'spam' (namespace)>
+In [8]: spam.__path__
+Out[8]: _NamespacePath(['foo/spam', 'bar/spam'])
 ```
 
-<br>
+----
 
-```typescript
-// in inject script
-const isLogin = await channel.callBackground('isLogin')
-console.log(isLogin) //-> true
-```
+### What documentation says
 
----
+Namespace packages and regular packages are very similar. The differences are:
+- Portions of namespace packages need not all come from the same directory <...> Regular packages are self-contained: all parts live in the same directory hierarchy.
+- Namespace packages' `__path__` attribute is a read-only iterable of strings, which is automatically updated when the parent path is modified.
 
-# :100: :muscle: :tada:
+---- 
 
----
+### How to use namespace packages?
 
-### Wrap up
-
-- Cross envornment commnication
-- A small library to solve messaging pain
-- TypeScript Rocks :tada: 
+- If you want to combine modules from different parts of your project into the same package
+    - E.g. you have plugins system
+    - Or just complex project structure (see catalyst for example)
 
 ---
-
-### Thank you! :sheep: 
-
-You can find me on
-
-- GitHub
-- Twitter
-- or email me
