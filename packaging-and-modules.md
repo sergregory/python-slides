@@ -1,5 +1,5 @@
 ---
-title: Python modules & dependencies system
+title: Python modules system
 tags: import, pip, poetry, module
 description: a short intro into how to use python modules properly.
 slideOptions:
@@ -28,7 +28,7 @@ slide: https://hackmd.io/W_rKVn7yQaiLSkZi0BKX3Q
 
 ---
 
-## Basic "gold" path
+## Basic "simple" way
 
 ----
 
@@ -307,7 +307,7 @@ from spam.bar import grok
 
 ---
 
-## What are the PYTHONPATH, sys.path and other guys?
+## PYTHONPATH, sys.path and their relationships?
 
 ----
 
